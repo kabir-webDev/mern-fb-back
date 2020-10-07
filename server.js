@@ -3,7 +3,7 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import multer from "multer";
-import path from "path";
+import path, { resolve } from "path";
 import pusher from "pusher";
 import GridFsStorage from "multer-gridfs-storage";
 import Grid from "gridfs-stream";
@@ -40,14 +40,40 @@ mongoose.connect(mongoURI, {
 mongoose.connection.once("open", () => {
   console.log("DB Connected");
 });
-
+let gfs;
 conn.once("open", () => {
   console.log("DB Connected");
+  gfs = Grid(conn.db, mongoose.mongo);
+  gfs.collection("images");
 });
+
+const storage = new GridFsStorage({
+  url: mongoURI,
+  file: (req, file) => {
+    return new Promise((resolve, reject) => {
+      {
+        const filename = `image-${Date.now()}${path.extname(
+          file.originalname
+        )}`;
+        const fileInfo = {
+          filename: filename,
+          bucketName: "image",
+        };
+        resolve(fileInfo);
+      }
+    });
+  },
+});
+
+const upload = multer({ storage });
 
 // api routes
 app.get("/", (req, res) => {
   res.status(200).send("Hello Cool Cooders");
+});
+
+app.post("/upload/image", upload.single("file"), (req, res) => {
+  res.status(201).send(req.file);
 });
 
 // listener
